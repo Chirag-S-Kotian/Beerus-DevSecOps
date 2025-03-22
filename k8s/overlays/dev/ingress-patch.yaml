@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cdrive-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Add dev-specific annotations here
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Environment dev; 

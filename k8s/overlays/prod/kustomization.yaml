@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: prod-
+
+resources:
+  - ../../base
+
+replicas:
+  - name: server
+    count: 3
+  - name: client
+    count: 2
+
+images:
+  - name: ${SERVER_IMAGE}
+    newName: gcr.io/cdrive-prod/server
+    newTag: stable
+  - name: ${CLIENT_IMAGE}
+    newName: gcr.io/cdrive-prod/client
+    newTag: stable
+
+patchesStrategicMerge:
+  - ingress-patch.yaml 
