@@ -1,0 +1,19 @@
+project_id = "cdrive-dev-123456"
+project_name = "cdrive"
+region = "us-central1"
+zone = "us-central1-a"
+
+# Network
+subnet_cidr = "10.0.0.0/20"
+pods_cidr = "10.16.0.0/16"
+services_cidr = "10.24.0.0/20"
+master_cidr = "172.16.0.0/28"
+
+# Node Pools
+preemptible = true  # Use preemptible for cost savings in dev
+general_node_count = 1
+general_min_node_count = 1
+general_max_node_count = 3
+general_machine_type = "e2-standard-2"
+monitoring_node_count = 1
+monitoring_machine_type = "e2-standard-2"  # Smaller for dev 

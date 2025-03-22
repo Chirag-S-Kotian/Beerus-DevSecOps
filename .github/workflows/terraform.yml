@@ -1,0 +1,127 @@
+name: Terraform Deployment
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+
+      # Create state bucket if it doesn't exist
+      - name: Create Terraform state bucket if needed
+        run: |
+          gsutil ls -b gs://cdrive-terraform-state || gsutil mb -l us-central1 gs://cdrive-terraform-state
+
+      - name: Terraform Format
+        id: fmt
+        run: |
+          cd terraform/gcp
+          terraform fmt -check
+
+      - name: Terraform Init
+        id: init
+        run: |
+          cd terraform/gcp
+          terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          cd terraform/gcp
+          terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd terraform/gcp
+          terraform plan -no-color
+        continue-on-error: true
+
+      - name: Update Pull Request
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            
+            </details>`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd terraform/gcp
+          terraform apply -auto-approve
+
+      # Output cluster info for use in other workflows
+      - name: Save GKE Credentials
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd terraform/gcp
+          # Get cluster name
+          CLUSTER_NAME=$(terraform output -raw kubernetes_cluster_name)
+          REGION=$(terraform output -raw gcp_region)
+          PROJECT_ID=$(terraform output -raw gcp_project_id)
+          
+          # Configure kubectl
+          gcloud container clusters get-credentials $CLUSTER_NAME --region $REGION --project $PROJECT_ID
+          
+          # Save the kubernetes config as an artifact
+          mkdir -p $HOME/.kube
+          cat $HOME/.kube/config > kubeconfig.yaml
+          
+          # Save outputs as GitHub environment variables for other jobs
+          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+          echo "GCP_REGION=$REGION" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+          
+      - name: Upload kubeconfig
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v3
+        with:
+          name: kubeconfig
+          path: terraform/gcp/kubeconfig.yaml
+          retention-days: 1 

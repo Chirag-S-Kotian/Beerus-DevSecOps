@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - prometheus-rbac.yaml
+  - prometheus-pvc.yaml
+  - prometheus-configmap.yaml
+  - prometheus-deployment.yaml
+  - prometheus-service.yaml
+  - grafana-pvc.yaml
+  - grafana-secret.yaml
+  - grafana-datasources.yaml
+  - grafana-deployment.yaml
+  - grafana-service.yaml
+  - ingress.yaml 

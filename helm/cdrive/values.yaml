@@ -1,0 +1,72 @@
+## Global Values
+global:
+  environment: dev
+  namespace: cdrive
+
+## Postgres Configuration
+postgres:
+  image: postgres:16-alpine
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  credentials:
+    username: postgres
+    password: postgres
+    database: cdrive
+
+## Server Configuration
+server:
+  image:
+    repository: gcr.io/cdrive-dev/server
+    tag: latest
+  replicas: 2
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  jwt:
+    secret: your_jwt_secret_here
+
+## Client Configuration
+client:
+  image:
+    repository: gcr.io/cdrive-dev/client
+    tag: latest
+  replicas: 2
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+      
+## Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: cdrive.dev.local
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: server
+          port: 4000
+        - path: /
+          pathType: Prefix
+          service: client
+          port: 80
+  tls: [] 
